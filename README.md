@@ -18,16 +18,23 @@
 
 原先我們使用的控制板是Arduino的Nano版經過我們的測試我們發現使用Nano版的時候Nano版的供電系統會不足以支撐兩顆馬達同時驅動，使轉向系統的伺服馬達無法轉到目標位子。經過測試後我們採用供電比較穩定的Arduino的Uno版，對支援更穩定的供電和更加優良的擴充。
 
-經過我們的反覆測發現到原本8伏特的電池來去推動馬達的時後馬達的功率無法驅動我們的車。接下來我們就把原本的電壓乘以二到了十六伏特，但是我們沒有意識到我們所使用Arduino Uno的只能對應到十二伏特的電壓。應此我們燒壞了一塊主機板。經過這次經驗我們換了新的十二伏電池盒。也是因為改回了十二伏的電池，讓我們的機器人正常的執行任務，以及進行接下來的測試和實驗
+經過我們的反覆測發現到原本8伏特的電池來去推動馬達的時後馬達的功率無法驅動我們的車。接下來我們就把原本的電壓乘以二到了十六伏特，但是我們沒有意識到我們所使用Arduino Uno的只能對應到十二伏特的電壓。應此我們燒壞了一塊主機板。經過這次經驗我們換了新的十二伏電池盒。也是因為改回了十二伏的電池，讓我們的機器人正常的執行任務，以及進行接下來的測試和實驗。
 
 # 障礙管理
-
-
-
-
-
 程式想法
-先將OpenMV的畫面分成六等份，先拿第三和第四個畫面來使用，因為在畫面正中間，
+
+先把轉彎角度、直走的速度、轉彎速度的角度都先歸零，直走伺服馬達的角度是固定的所以先放入變數還有每個顏色的閥值都是先量好放入變數，迴圈內的變數是每進行一次就要歸零。
+
+當我們吧畫面正中央的第三等分跟第四等分來運算時我們可以透過畫面中的Y軸來判斷我們的車輛是否離牆面近而判斷是否轉彎並且修正。Y軸在畫面中越低就代表車輛離牆面越近，再來就傳送轉彎角度和馬達速度給Arduino Uno來進行轉彎。
+
+如何判斷我們車輛應該轉逆時針還是順時針，我們運用到影像辨識來判斷橘色線的角度，大於90要轉左邊，小於90要轉右邊，這樣一來我們就可以知道每次轉彎是轉左邊還是右邊，但是影像辨識很容易受到燈光的影響，所以我們也試了很多方式來解決這個問題，也調了很多次閥值。
+
+
+
+
+
+
+OpenMV
 ```
 import sensor, image, time, math
 from pyb import UART
@@ -80,20 +87,22 @@ while(True):
             if blob.elongation() > 0.5:
                 #img.draw_edges(blob.min_corners(), color=(255,0,0))
                 img.draw_line(blob.major_axis_line(), color=(0,255,0))
-                print( blob.rotation_deg())
-                m = blob.rotation_deg()
+                print( blob.rotation_deg())    #把線的角度算出來
+                m = blob.rotation_deg()    #方進m這個變數
                 #img.draw_line(blob.minor_axis_line(), color=(0,0,255))
                 print (m)
                 print (clock)
-                if m > 90:
-                    angle = 65
+                if m > 90:  #判斷要轉左邊還是右邊
+
+
+                    angle = 65 #左
                 else :
-                    angle = 125
+                    angle = 125 #右
 
 
     threemax_x = 0
     threemax_y = 0
-    #3
+    #畫面三找黑色並把他框出來
     for blob in img.find_blobs([thresholds_black[threshold_index]], pixels_threshold=200, area_threshold=200, merge=True,roi=(108,0,54,250)):
 
         '''
@@ -102,7 +111,7 @@ while(True):
             img.draw_line(blob.major_axis_line(), color=(0,255,0))
             img.draw_line(blob.minor_axis_line(), color=(0,0,255))
         '''
-        if blob.cy() > threemax_y:
+        if blob.cy() > threemax_y:     #找出y最大的框
             threemax_x = blob.cx()
             threemax_y = blob.cy()
     img.draw_rectangle(blob.rect())
@@ -120,7 +129,7 @@ while(True):
 
     fourmax_x = 0
     fourmax_y = 0
-    #4
+    #畫面四找黑色並把他框出來
     for blob in img.find_blobs([thresholds_black[threshold_index]], pixels_threshold=200, area_threshold=200, merge=True,roi=(162,0,54,250)):
 
         '''
@@ -129,7 +138,7 @@ while(True):
             img.draw_line(blob.major_axis_line(), color=(0,255,0))
             img.draw_line(blob.minor_axis_line(), color=(0,0,255))
         '''
-        if blob.cy() > fourmax_y:
+        if blob.cy() > fourmax_y:     #找出Y最大的框
             fourmax_x = blob.cx()
             fourmax_y = blob.cy()
     img.draw_rectangle(blob.rect())
@@ -146,3 +155,82 @@ while(True):
     img.draw_keypoints([(blob.cx(), blob.cy(), int(math.degrees(blob.rotation())))], size=20)
     
 ```
+程式想法
+
+先把腳位、變數、輸出、電壓設定好把變數都歸零。開始速度的運算，運算完之後運算轉向角。接下來寫上防呆程式。
+
+Arduino
+
+      #include <Servo.h>
+      int Speed=0,angle=100,cnt=0;
+      char c[15]={0}; 
+      Servo S;
+      void setup() {
+       // put your setup code here, to run once:
+       S.attach(9);
+       Serial.begin(19200);
+       pinMode(4,OUTPUT);
+       pinMode(5,OUTPUT);
+       pinMode(6,OUTPUT);
+       digitalWrite(4,LOW);
+       digitalWrite(5,HIGH);
+     }
+
+     void loop() {
+       // put your main code here, to run repeatedly:
+
+  
+       if (Serial.available()) {//收序列資料
+     // Read the most recent byte
+     c[cnt] = Serial.read();
+     if(c[cnt] == 10)
+     {
+        Speed = 0;
+        angle = 0;
+        cnt = 0;
+        int i=0;
+        //////////////////////////////////////
+        while(c[i]!=',')
+        {
+          i++;
+        }
+        for(int k=0;k<i;k++)//逗號前加
+        {
+            Speed = Speed*10+(c[k]-48);
+           
+        }
+        int ii=0;
+        while(c[ii]!='E')
+        {
+          ii++;
+        }
+        for(int k=i+1;k<ii;k++)//逗號後加
+        {
+            angle = angle*10+(c[k]-48);
+        }
+        ////////////////////////////////////
+        if(angle>125){
+          angle=125;//右轉防呆
+        }
+        if(angle<65){
+          angle=65;//左轉防呆
+          }
+         if(Speed>220){
+          Speed=160;//速度防呆
+         }
+         
+        analogWrite(6,Speed);
+        S.write(angle);
+     }
+     
+     
+     cnt++;
+    
+       }
+   
+     }
+右轉防呆跟左轉防呆的用意在於防止OpenMV在跟Arduino溝通的時候，傳錯訊號導致前輪轉向的伺服馬達卡死，而影響後續的行走過程。
+
+速度防呆也是一樣防止溝通上的錯誤導致車輛暴衝導致撞到障礙物或是撞到牆壁。
+
+在斜線匡起來的部分中代表每當速度或是角度在當前的位數時乘十可以進到下下一格位數這時候需要家上原本的數字。需要減掉48是因為ASCII碼0=48所以我們把算出來的ASCII碼減掉48就是我們要的數字了。
