@@ -1,0 +1,75 @@
+  #include <Servo.h>
+  int Speed=0,angle=100,cnt=0;
+  char c[15]={0}; 
+  Servo S;
+  void setup() {
+   // put your setup code here, to run once:
+   S.attach(9);
+   Serial.begin(19200);
+   pinMode(4,OUTPUT);
+   pinMode(5,OUTPUT);
+   pinMode(6,OUTPUT);
+   digitalWrite(4,LOW);
+   digitalWrite(5,HIGH);
+ }
+
+ void loop() {
+   // put your main code here, to run repeatedly:
+
+  
+   if (Serial.available()) {//收序列資料
+     // Read the most recent byte
+     c[cnt] = Serial.read();
+     if(c[cnt] == 10)
+     {
+        Speed = 0;
+        angle = 0;
+        cnt = 0;
+        int i=0;
+        while(c[i]!=',')
+        {
+          i++;
+        }
+        for(int k=0;k<i;k++)//逗號前加
+        {
+            Speed = Speed*10+(c[k]-48);
+           // Serial.println(Speed);
+        }
+        int ii=0;
+        while(c[ii]!='E')
+        {
+          ii++;
+        }
+        for(int k=i+1;k<ii;k++)//逗號前加
+        {
+            angle = angle*10+(c[k]-48);
+        }
+        if(angle>125){
+          angle=125;//右
+        }
+        if(angle<65){
+          angle=65;//左
+          }
+         if(Speed>220){
+          Speed=160;
+         }
+         if(angle==300){
+          angle=125;
+         }
+         if(angle==400){
+          angle=65;
+         }
+       // Serial.print(Speed);
+        //Serial.print(",");
+        //Serial.println(angle);
+          analogWrite(6,Speed);
+        S.write(angle);
+     }
+     
+     
+     cnt++;
+     // ECHO the value that was read
+//     Serial.write(byteRead);
+   }
+   
+ }
