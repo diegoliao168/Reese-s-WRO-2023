@@ -1,0 +1,166 @@
+import sensor, image, time, math
+from pyb import UART
+
+threshold_index = 0
+v = [0] * 5
+
+
+#thresholds_black = [(0, 19, -84, 53, 8, -119)]
+#thresholds_black = [(17, 0, 100, -17, 74, -38)]
+thresholds_black = [(38, 0, 100, -3, 127, -2)]
+thresholds_red = [(11, 32, 127, 14, 113, -110)]
+thresholds_green = [(25, 17, -24, -4, -28, 13)]
+thresholds_blue = [(18, 45, 27, -7, -103, -7)]
+thresholds_orange = [(47, 100, 71, 9, 127, -105)]
+
+sensor.reset()
+sensor.set_pixformat(sensor.RGB565)
+sensor.set_framesize(sensor.QVGA)
+sensor.skip_frames(time = 2000)
+sensor.set_auto_gain(False)
+sensor.set_auto_whitebal(False)
+clock = time.clock()
+uart = UART(3, 19200)
+m = 0
+angle = 0    #轉彎角度
+mot_1 = 120  #轉彎PWM#160,200
+mot_2 = 100   #直走PWM#160,200
+middle = 95  #伺服馬達中間值
+
+
+
+
+
+while(True):
+
+    x3 = 0
+    x4 = 0
+    y3 = 0
+    y4 = 0
+    two_m = 0
+    two = 0
+    red_max_x = 0
+    red_max_y = 0
+
+
+
+    clock.tick()
+    img = sensor.snapshot()
+    #找橘色
+    if m == 0 :
+        for blob in img.find_blobs([thresholds_orange[0]], pixels_threshold=400, area_threshold=400, merge=True):
+
+            if blob.elongation() > 0.5:
+                #img.draw_edges(blob.min_corners(), color=(255,0,0))
+                img.draw_line(blob.major_axis_line(), color=(0,255,0))
+                print( blob.rotation_deg())
+                m = blob.rotation_deg()
+                #img.draw_line(blob.minor_axis_line(), color=(0,0,255))
+                print (m)
+                print (clock)
+                if m > 90:
+                    angle = 65
+                else :
+                    angle = 125
+
+
+    threemax_x = 0
+    threemax_y = 0
+    #3
+    for blob in img.find_blobs([thresholds_black[threshold_index]], pixels_threshold=200, area_threshold=200, merge=True,roi=(108,0,54,250)):
+
+        '''
+        if blob.elongation() > 0.5:
+            img.draw_edges(blob.min_corners(), color=(255,0,0))
+            img.draw_line(blob.major_axis_line(), color=(0,255,0))
+            img.draw_line(blob.minor_axis_line(), color=(0,0,255))
+        '''
+        if blob.cy() > threemax_y:
+            threemax_x = blob.cx()
+            threemax_y = blob.cy()
+    img.draw_rectangle(blob.rect())
+    img.draw_cross(blob.cx(), blob.cy())
+    x3 = threemax_x
+    y3 = threemax_y
+
+    img.draw_keypoints([(blob.cx(), blob.cy(), int(math.degrees(blob.rotation())))], size=20)
+    if  threemax_y > 80:#100,90
+        uart.write(str(mot_1)+","+ str(angle)+"E\n")
+        time.sleep_ms(20)
+
+    else:
+        uart.write(str(mot_2)+","+ str(middle)+"E\n")
+        time.sleep_ms(20)
+
+
+    fourmax_x = 0
+    fourmax_y = 0
+    #4
+    for blob in img.find_blobs([thresholds_black[threshold_index]], pixels_threshold=200, area_threshold=200, merge=True,roi=(162,0,54,250)):
+
+        '''
+        if blob.elongation() > 0.5:
+            img.draw_edges(blob.min_corners(), color=(255,0,0))
+            img.draw_line(blob.major_axis_line(), color=(0,255,0))
+            img.draw_line(blob.minor_axis_line(), color=(0,0,255))
+        '''
+        if blob.cy() > fourmax_y:
+            fourmax_x = blob.cx()
+            fourmax_y = blob.cy()
+    img.draw_rectangle(blob.rect())
+    img.draw_cross(b, blob.cy())
+    x4 = fourmax_x
+    y4 = fourmax_y
+    if fourmax_y > 80:#100,90
+        uart.write(str(mot_1)+","+ str(angle)+"E\n")
+        time.sleep_ms(20)
+
+    else:
+        uart.write(str(mot_2)+","+ str(middle)+"E\n")
+        time.sleep_ms(20)
+
+    img.draw_keypoints([(blob.cx(), blob.cy(), int(math.degrees(blob.rotation())))], size=20)
+    #找紅
+    '''
+    for blob in img.find_blobs([thresholds_red[threshold_index]], pixels_threshold=200, area_threshold=200, merge=True):
+
+        if blob.elongation() > 0.5:
+            img.draw_edges(blob.min_corners(), color=(255,0,0))
+            img.draw_line(blob.major_axis_line(), color=(0,255,0))
+            img.draw_line(blob.minor_axis_line(), color=(0,0,255))
+
+        if blob.cy() > red_max_y and blob.cx() > 30 :
+            red_max_x = blob.cx()
+            red_max_y = blob.cy()
+
+    img.draw_rectangle(blob.rect())
+    img.draw_cross(blob.cx(), blob.cy())
+
+    img.draw_keypoints([(blob.cx(), blob.cy(), int(math.degrees(blob.rotation())))], size=20)
+    if  red_max_y > 70:
+        uart.write(str(0)+","+ str(300)+"E\n")
+        time.sleep_ms(200)
+
+
+    else:
+        uart.write(str(100)+","+ str(95)+"E\n")
+        time.sleep_ms(20)
+    '''
+    #two_m = (y3-y4)/(x3-x4)
+    two = math.degrees(two_m)
+    two = two + 95
+
+    print (two)
+
+
+    #uart.write(str(150)+","+ str(95)+"E\n")
+
+    #time.sleep_ms(20)
+
+
+
+
+
+
+
+
